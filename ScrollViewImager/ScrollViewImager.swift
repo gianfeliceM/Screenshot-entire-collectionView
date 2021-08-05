@@ -10,6 +10,7 @@ import UIKit
 
 
 extension UIView {
+    
     /**
      Returns a screenshot from the visible area
      */
@@ -33,20 +34,48 @@ extension UIView {
 
 
 extension UIScrollView {
+    
+    
+    /**
+     Generate a screenshot by resizing the scrollview
+     - unsafe with memory intensive cells
+     */
+    func screenshot(scale: CGFloat) -> UIImage {
+        let currentSize = frame.size
+        let currentOffset = contentOffset // temp store current offset
+        
+        frame.size = contentSize
+        setContentOffset(.zero, animated: false)
+        
+        
+        let rect = CGRect(x: 0, y: 0, width: self.bounds.size.width, height: self.bounds.size.height)
+        UIGraphicsBeginImageContextWithOptions(rect.size, false, UIScreen.main.scale)
+        self.drawHierarchy(in: rect, afterScreenUpdates: true)
+        let image = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        
+        frame.size = currentSize
+        setContentOffset(currentOffset, animated: false)
+        
+        return resizeUIImage(image: image!, scale: scale)
+        
+    }
+    
+    
     /**
      Generate a screenshot from the content
      - display acts a bit glitchy
      - scrollview will scroll when doing this
      */
-    func screenshot(completion: @escaping (_ screenshot: UIImage?) -> Void) {
+    func screenshot(scale: CGFloat, completion: @escaping (_ screenshot: UIImage?) -> Void) {
         
         let pointsAndFrames = self.getScreenshotRects()
         let points = pointsAndFrames.points
         let frames = pointsAndFrames.frames
         
-        let finalSize = CGSize(width: self.contentSize.width, height: self.contentSize.height)
+        let finalSize = CGSize(width: self.contentSize.width * scale, height: self.contentSize.height * scale)
         
-        makeScreenshots(points: points, frames: frames, scale: 1) { (screenshots) -> Void in
+        makeScreenshots(points: points, frames: frames, scale: scale) { (screenshots) -> Void in
             
             let stitched = self.stitchImages(images: screenshots, finalSize: finalSize)
             
@@ -216,6 +245,15 @@ extension UIScrollView {
             
             completion(image!)
         }
+    }
+    
+    
+    private func crop(image image_I:UIImage, toRect toRect_I:CGRect) -> UIImage? {
+        
+        guard let imageRef: CGImage = image_I.cgImage!.cropping(to: toRect_I) else {
+            return nil
+        }
+        return UIImage(cgImage:imageRef)
     }
     
     private func resizeUIImage(image: UIImage, scale: CGFloat) -> UIImage {
